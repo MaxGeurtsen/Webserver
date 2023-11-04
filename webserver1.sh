@@ -242,7 +242,13 @@ function uninstall_nosecrets() {
     echo "function uninstall_nosecrets"
 
     #TODO uninstall nosecrets application
-    sudo make uninstall -C "$INSTALL_DIR/nosecrets"
+    if [ -d "$INSTALL_PATH" ]; then 
+        cd $INSTALL_PATH 
+        sudo make uninstall 
+    fi
+    if [ -d "$INSTALL_PATH" ]; then 
+        sudo rm -Rf $INSTALL_PATH 
+    fi
 }
 
 function uninstall_pywebserver() {

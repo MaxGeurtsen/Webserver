@@ -56,33 +56,15 @@ function install_package() {
     echo "function install_package"
 
     # TODO The logic for downloading from a URL and unizpping the downloaded files of different applications must be generic
-
-    # TODO Specific actions that need to be taken for a specific application during this process should be handeld in a separate if-else
-
-    # TODO Every intermediate steps need to be handeld carefully. error handeling should be dealt with using handle_error() and/or rolleback()
-
-    # TODO If a file is downloaded but cannot be zipped a rollback is needed to be able to start from scratch
-    # for example: package names and urls that are needed are passed or extracted from the config file
-
-    # TODO check if the application-folder and the url of the dependency exist
-    # TODO create a specific installation folder for the current package
-
-    # TODO Download and unzip the package
-    # if a a problem occur during the this proces use the function handle_error() to print a messgage and handle the error
-
-    # TODO extract the package to the installation folder and store it into a dedicated folder
-    # If a problem occur during the this proces use the function handle_error() to print a messgage and handle the error
-
-    # TODO this section can be used to implement application specifc logic
-    # nosecrets might have additional commands that needs to be executed
-    # make sure the user is allowed to remove this folder during uninstall
-
     local package_name="$1" 
     local package_url="$2"    
     local install_dir="$3"    
 
     echo "Installing $package_name from $package_url to $install_dir..."
-
+    # TODO Specific actions that need to be taken for a specific application during this process should be handeld in a separate if-else
+    # TODO Every intermediate steps need to be handeld carefully. error handeling should be dealt with using handle_error() and/or rolleback()
+    # TODO check if the application-folder and the url of the dependency exist
+    # TODO create a specific installation folder for the current package
     # Check dir
     if [ ! -d "$install_dir" ]; then
         mkdir -p "$install_dir"
@@ -92,18 +74,32 @@ function install_package() {
     if [ -d "$install_dir/$package_name" ]; then
         handle_error "$package_name already installed"
     fi
+    # TODO If a file is downloaded but cannot be zipped a rollback is needed to be able to start from scratch
+    # for example: package names and urls that are needed are passed or extracted from the config file
 
-    # donwnload and unzip
+
+
+    # TODO Download and unzip the package
+    # if a a problem occur during the this proces use the function handle_error() to print a messgage and handle the error
+
+    # donwnload 
     wget -q "$package_url" -P "$install_dir"
     if [ $? -ne 0 ]; then
         handle_error "Failed to download $package_name." "rm -rf $install_dir/$package_name"
     fi
+
+    # TODO extract the package to the installation folder and store it into a dedicated folder
+    # If a problem occur during the this proces use the function handle_error() to print a messgage and handle the error
 
     # package to dir
     unzip -q "$install_dir/$(basename $package_url)" -d "$install_dir"
     if [ $? -ne 0 ]; then
         handle_error "Failed to unzip $package_name." "rm -rf $install_dir/$package_name"
     fi
+
+    # TODO this section can be used to implement application specifc logic
+    # nosecrets might have additional commands that needs to be executed
+    # make sure the user is allowed to remove this folder during uninstall
 
     # install nosecrets
     if [ "$package_name" == "nosecrets" ]; then
@@ -114,7 +110,10 @@ function install_package() {
     # install pywebserver
     elif [ "$package_name" == "pywebserver" ]; then
         
-        handle_error "error"
+        sudo curl \
+        -L https://raw.githubusercontent.com/nickjj/webserver/v0.2.0/webserver \
+        -o $install_dir && sudo chmod +x $install_dir
+        
     else
         echo "No specific installation steps defined for $package_name."
     fi
@@ -126,6 +125,7 @@ function rollback_nosecrets() {
     echo "function rollback_nosecrets"
 
     # TODO rollback intermiediate steps when installation fails
+    rm "$INSTALL_DIR/nosecrets"
 }
 
 function rollback_pywebserver() {
@@ -133,6 +133,7 @@ function rollback_pywebserver() {
     echo "function rollback_pywebserver"
 
     # TODO rollback intermiediate steps when installation fails
+    rm "$INSTALL_DIR/pywebserver"
 }
 
 function test_nosecrets() {
@@ -140,6 +141,7 @@ function test_nosecrets() {
     echo "function test_nosecrets"
 
     # TODO test nosecrets
+    ls -l nms
     # kill this webserver process after it has finished its job
 
 }
@@ -150,7 +152,10 @@ function test_pywebserver() {
 
     # TODO test the webserver
     # server and port number must be extracted from config.conf
-    # test data must be read from test.json  
+    local server=$(grep 'WEBSERVER_IP' config.conf | awk -F' = ' '{print $2}')
+    local port=$(grep 'WEBSERVER_PORT' config.conf | awk -F' = ' '{print $2}')
+    # test data must be read from test.json 
+    test_data=$(jq '.' test.json)
     # kill this webserver process after it has finished its job
 
 }
@@ -181,6 +186,11 @@ function remove() {
 
 }
 
+function check_dependency() {
+    local install_dir="$1"
+    INSTALL_DIR=install_dir
+}
+
 function main() {
     # Do not remove next line!
     echo "function main"
@@ -203,6 +213,8 @@ function main() {
     # expected arguments are the installation directory specified in dev.conf
     if [ "$1" == "setup" ]; then
         setup
+        install_dir=$(grep 'install_dir' dev.conf | awk -F= '{print $2}' | tr -d ' ')
+        check_dependency "$install_dir"
     elif [ "$1" == "nosecrets" ]; then
         if [ "$2" == "--install" ]; then
             install_package "Nosecrets" "$NOSECRETS_URL" "$INSTALL_DIR/nosecrets"
